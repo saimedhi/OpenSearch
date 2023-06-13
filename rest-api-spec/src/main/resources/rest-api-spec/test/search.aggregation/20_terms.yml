@@ -277,13 +277,13 @@ setup:
 
   - length: { aggregations.long_terms.buckets: 2 }
 
-  - match: { aggregations.long_terms.buckets.0.key: 4611686018427387903 }
+  - match: { aggregations.long_terms.buckets.0.key: 4.611686018427388e+18 }
 
   - is_false: aggregations.long_terms.buckets.0.key_as_string
 
   - match: { aggregations.long_terms.buckets.0.doc_count: 2 }
 
-  - match: { aggregations.long_terms.buckets.1.key: -4611686018427387904 }
+  - match: { aggregations.long_terms.buckets.1.key: -4.611686018427388e+18 }
 
   - is_false: aggregations.long_terms.buckets.1.key_as_string
 

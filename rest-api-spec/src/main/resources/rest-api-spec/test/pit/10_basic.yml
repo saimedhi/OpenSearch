@@ -21,7 +21,7 @@
       indices.refresh: {}
 
   - do:
-      create_pit:
+      create_point_in_time:
         allow_partial_pit_creation: true
         index: test_pit
         keep_alive: 23h

@@ -24,7 +24,7 @@
 ---
 "Test cat nodes output":
   - skip:
-      version: " - 1.4.99"
+      version: " - 3.0.0"
       reason: "cluster_manager is introduced in 2.0.0"
 
   - do:

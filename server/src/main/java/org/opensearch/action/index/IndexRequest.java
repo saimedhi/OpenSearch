@@ -48,10 +48,10 @@ import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.bytes.BytesArray;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -62,10 +62,9 @@ import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.VersionType;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -228,12 +227,7 @@ public class IndexRequest extends ReplicatedWriteRequest<IndexRequest> implement
 
         validationException = DocWriteRequest.validateSeqNoBasedCASParams(this, validationException);
 
-        if (id != null && id.getBytes(StandardCharsets.UTF_8).length > 512) {
-            validationException = addValidationError(
-                "id [" + id + "] is too long, must be no longer than 512 bytes but was: " + id.getBytes(StandardCharsets.UTF_8).length,
-                validationException
-            );
-        }
+        validationException = DocWriteRequest.validateDocIdLength(id, validationException);
 
         if (pipeline != null && pipeline.isEmpty()) {
             validationException = addValidationError("pipeline cannot be an empty string", validationException);

@@ -48,7 +48,8 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.lucene.search.Queries;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.BigArrays;
-import org.opensearch.core.common.lease.Releasables;
+import org.opensearch.common.util.FeatureFlags;
+import org.opensearch.common.lease.Releasables;
 import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.IndexSettings;
@@ -64,6 +65,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.similarity.SimilarityService;
+import org.opensearch.search.aggregations.BucketCollectorProcessor;
 import org.opensearch.search.aggregations.InternalAggregation;
 import org.opensearch.search.aggregations.SearchContextAggregations;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -103,6 +105,8 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+
+import static org.opensearch.search.SearchService.CLUSTER_CONCURRENT_SEGMENT_SEARCH_SETTING;
 
 /**
  * The main search context used during search phase
@@ -173,7 +177,7 @@ final class DefaultSearchContext extends SearchContext {
     private SuggestionSearchContext suggest;
     private List<RescoreContext> rescore;
     private Profilers profilers;
-
+    private BucketCollectorProcessor bucketCollectorProcessor = NO_OP_BUCKET_COLLECTOR_PROCESSOR;
     private final Map<String, SearchExtBuilder> searchExtBuilders = new HashMap<>();
     private final Map<Class<?>, CollectorManager<? extends Collector, ReduceableSearchResult>> queryCollectorManagers = new HashMap<>();
     private final QueryShardContext queryShardContext;
@@ -869,6 +873,25 @@ final class DefaultSearchContext extends SearchContext {
         return profilers;
     }
 
+    /**
+     * Returns concurrent segment search status for the search context
+     */
+    @Override
+    public boolean isConcurrentSegmentSearchEnabled() {
+        if (FeatureFlags.isEnabled(FeatureFlags.CONCURRENT_SEGMENT_SEARCH)
+            && (clusterService != null)
+            && (searcher().getExecutor() != null)) {
+            return indexService.getIndexSettings()
+                .getSettings()
+                .getAsBoolean(
+                    IndexSettings.INDEX_CONCURRENT_SEGMENT_SEARCH_SETTING.getKey(),
+                    clusterService.getClusterSettings().get(CLUSTER_CONCURRENT_SEGMENT_SEARCH_SETTING)
+                );
+        } else {
+            return false;
+        }
+    }
+
     public void setProfilers(Profilers profilers) {
         this.profilers = profilers;
     }
@@ -896,5 +919,15 @@ final class DefaultSearchContext extends SearchContext {
     @Override
     public InternalAggregation.ReduceContext partial() {
         return requestToAggReduceContextBuilder.apply(request.source()).forPartialReduction();
+    }
+
+    @Override
+    public void setBucketCollectorProcessor(BucketCollectorProcessor bucketCollectorProcessor) {
+        this.bucketCollectorProcessor = bucketCollectorProcessor;
+    }
+
+    @Override
+    public BucketCollectorProcessor bucketCollectorProcessor() {
+        return bucketCollectorProcessor;
     }
 }

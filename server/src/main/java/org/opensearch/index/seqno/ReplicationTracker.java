@@ -46,9 +46,9 @@ import org.opensearch.cluster.routing.IndexShardRoutingTable;
 import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.common.SuppressForbidden;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.util.concurrent.ConcurrentCollections;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.gateway.WriteStateException;
@@ -58,7 +58,7 @@ import org.opensearch.index.engine.SafeCommitInfo;
 import org.opensearch.index.shard.AbstractIndexShardComponent;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.index.shard.ReplicationGroup;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.indices.replication.checkpoint.ReplicationCheckpoint;
 import org.opensearch.indices.replication.common.ReplicationTimer;
 
@@ -1174,13 +1174,18 @@ public class ReplicationTracker extends AbstractIndexShardComponent implements L
         assert handoffInProgress == false;
         assert invariant();
         final CheckpointState cps = checkpoints.get(allocationId);
-        assert !this.shardAllocationId.equals(allocationId) && cps != null;
+        assert !this.shardAllocationId.equals(allocationId);
+        // Ignore if the cps is null (i.e. replica shard not in active state).
+        if (cps == null) {
+            logger.warn("Ignoring the checkpoint update for allocation ID {} as its not being tracked by primary", allocationId);
+            return;
+        }
         if (cps.checkpointTimers.isEmpty() == false) {
             // stop any timers for checkpoints up to the received cp and remove from cps.checkpointTimers.
             // Compute the max lag from the set of completed timers.
             final AtomicLong lastFinished = new AtomicLong(0L);
             cps.checkpointTimers.entrySet().removeIf((entry) -> {
-                boolean result = visibleCheckpoint.equals(entry.getKey()) || visibleCheckpoint.isAheadOf(entry.getKey());
+                boolean result = entry.getKey().isAheadOf(visibleCheckpoint) == false;
                 if (result) {
                     final ReplicationTimer timer = entry.getValue();
                     timer.stop();

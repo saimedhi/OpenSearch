@@ -33,14 +33,14 @@
 package org.opensearch.action.admin.indices.shards;
 
 import com.carrotsearch.hppc.cursors.IntObjectCursor;
-import org.opensearch.BaseExceptionsHelper;
+import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.support.DefaultShardOperationFailedException;
+import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.collect.ImmutableOpenIntMap;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 
@@ -202,7 +202,7 @@ public class IndicesShardStoresResponse extends ActionResponse implements ToXCon
             builder.field(Fields.ALLOCATED, allocationStatus.value());
             if (storeException != null) {
                 builder.startObject(Fields.STORE_EXCEPTION);
-                BaseExceptionsHelper.generateThrowableXContent(builder, params, storeException);
+                OpenSearchException.generateThrowableXContent(builder, params, storeException);
                 builder.endObject();
             }
             return builder;

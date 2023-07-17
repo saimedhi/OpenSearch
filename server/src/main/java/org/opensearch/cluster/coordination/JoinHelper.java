@@ -50,10 +50,10 @@ import org.opensearch.cluster.routing.RerouteService;
 import org.opensearch.cluster.routing.allocation.AllocationService;
 import org.opensearch.cluster.service.ClusterManagerService;
 import org.opensearch.common.Priority;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.collect.Tuple;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -447,7 +447,7 @@ public class JoinHelper {
     }
 
     public void sendValidateJoinRequest(DiscoveryNode node, ClusterState state, ActionListener<TransportResponse.Empty> listener) {
-        if (node.getVersion().before(Version.V_3_0_0)) {
+        if (node.getVersion().before(Version.V_2_9_0)) {
             transportService.sendRequest(
                 node,
                 VALIDATE_JOIN_ACTION_NAME,

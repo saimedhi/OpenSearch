@@ -33,8 +33,8 @@ package org.opensearch.search;
 
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.util.CharsRefBuilder;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
@@ -79,6 +79,7 @@ import org.opensearch.search.fetch.subphase.highlight.UnifiedHighlighter;
 import org.opensearch.search.query.ConcurrentQueryPhaseSearcher;
 import org.opensearch.search.query.QueryPhase;
 import org.opensearch.search.query.QueryPhaseSearcher;
+import org.opensearch.search.query.QueryPhaseSearcherWrapper;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
 import org.opensearch.search.rescore.RescoreContext;
 import org.opensearch.search.rescore.RescorerBuilder;
@@ -425,7 +426,7 @@ public class SearchModuleTests extends OpenSearchTestCase {
         SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
         TestSearchContext searchContext = new TestSearchContext(null);
         QueryPhase queryPhase = searchModule.getQueryPhase();
-        assertTrue(queryPhase.getQueryPhaseSearcher() instanceof QueryPhase.DefaultQueryPhaseSearcher);
+        assertTrue(queryPhase.getQueryPhaseSearcher() instanceof QueryPhaseSearcherWrapper);
         assertTrue(queryPhase.getQueryPhaseSearcher().aggregationProcessor(searchContext) instanceof DefaultAggregationProcessor);
     }
 
@@ -434,8 +435,9 @@ public class SearchModuleTests extends OpenSearchTestCase {
         FeatureFlags.initializeFeatureFlags(settings);
         SearchModule searchModule = new SearchModule(settings, Collections.emptyList());
         TestSearchContext searchContext = new TestSearchContext(null);
+        searchContext.setConcurrentSegmentSearchEnabled(true);
         QueryPhase queryPhase = searchModule.getQueryPhase();
-        assertTrue(queryPhase.getQueryPhaseSearcher() instanceof ConcurrentQueryPhaseSearcher);
+        assertTrue(queryPhase.getQueryPhaseSearcher() instanceof QueryPhaseSearcherWrapper);
         assertTrue(queryPhase.getQueryPhaseSearcher().aggregationProcessor(searchContext) instanceof ConcurrentAggregationProcessor);
         FeatureFlags.initializeFeatureFlags(Settings.EMPTY);
     }

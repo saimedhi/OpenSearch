@@ -32,11 +32,11 @@
 package org.opensearch.search.aggregations;
 
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.common.ParsingException;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.common.Strings;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.SuggestingErrorOnUnknown;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.NamedObjectNotFoundException;
@@ -235,7 +235,7 @@ public class AggregatorFactories {
             }
         }
 
-        return factories;
+        return factories.count() > 0 ? factories : null;
     }
 
     public static final AggregatorFactories EMPTY = new AggregatorFactories(new AggregatorFactory[0]);

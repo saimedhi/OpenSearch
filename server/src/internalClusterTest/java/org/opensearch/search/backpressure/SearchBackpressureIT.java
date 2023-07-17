@@ -22,8 +22,8 @@ import org.opensearch.action.search.SearchTask;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.plugins.ActionPlugin;
@@ -151,7 +151,7 @@ public class SearchBackpressureIT extends OpenSearchIntegTestCase {
     public void testSearchTaskCancellationWithHighCpu() throws InterruptedException {
         Settings request = Settings.builder()
             .put(SearchBackpressureSettings.SETTING_MODE.getKey(), "enforced")
-            .put(SearchTaskSettings.SETTING_CPU_TIME_MILLIS_THRESHOLD.getKey(), 50)
+            .put(SearchTaskSettings.SETTING_CPU_TIME_MILLIS_THRESHOLD.getKey(), 1000)
             .build();
         assertAcked(client().admin().cluster().prepareUpdateSettings().setPersistentSettings(request).get());
 
@@ -182,7 +182,7 @@ public class SearchBackpressureIT extends OpenSearchIntegTestCase {
     public void testSearchShardTaskCancellationWithHighCpu() throws InterruptedException {
         Settings request = Settings.builder()
             .put(SearchBackpressureSettings.SETTING_MODE.getKey(), "enforced")
-            .put(SearchShardTaskSettings.SETTING_CPU_TIME_MILLIS_THRESHOLD.getKey(), 50)
+            .put(SearchShardTaskSettings.SETTING_CPU_TIME_MILLIS_THRESHOLD.getKey(), 1000)
             .build();
         assertAcked(client().admin().cluster().prepareUpdateSettings().setPersistentSettings(request).get());
 

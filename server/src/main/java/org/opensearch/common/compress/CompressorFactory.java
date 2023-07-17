@@ -33,8 +33,9 @@
 package org.opensearch.common.compress;
 
 import org.opensearch.common.Nullable;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.compress.NotXContentException;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -48,9 +49,6 @@ public class CompressorFactory {
 
     public static final Compressor DEFLATE_COMPRESSOR = new DeflateCompressor();
 
-    @Deprecated
-    public static final Compressor COMPRESSOR = DEFLATE_COMPRESSOR;
-
     public static final Compressor ZSTD_COMPRESSOR = new ZstdCompressor();
 
     public static final Compressor NONE_COMPRESSOR = new NoneCompressor();
@@ -59,14 +57,18 @@ public class CompressorFactory {
         return compressor(bytes) != null;
     }
 
+    public static Compressor defaultCompressor() {
+        return DEFLATE_COMPRESSOR;
+    }
+
     @Nullable
     public static Compressor compressor(BytesReference bytes) {
-        if (COMPRESSOR.isCompressed(bytes)) {
+        if (DEFLATE_COMPRESSOR.isCompressed(bytes)) {
             // bytes should be either detected as compressed or as xcontent,
             // if we have bytes that can be either detected as compressed or
             // as a xcontent, we have a problem
             assert XContentHelper.xContentType(bytes) == null;
-            return COMPRESSOR;
+            return DEFLATE_COMPRESSOR;
         } else if (ZSTD_COMPRESSOR.isCompressed(bytes)) {
             assert XContentHelper.xContentType(bytes) == null;
             return ZSTD_COMPRESSOR;

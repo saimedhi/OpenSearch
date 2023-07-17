@@ -42,11 +42,11 @@ import org.opensearch.cluster.SnapshotsInProgress.ShardState;
 import org.opensearch.cluster.SnapshotsInProgress.State;
 import org.opensearch.common.UUIDs;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.Writeable;
-import org.opensearch.index.Index;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.index.Index;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.repositories.IndexId;
 import org.opensearch.test.AbstractDiffableWireSerializationTestCase;
 import org.opensearch.test.VersionUtils;
@@ -215,7 +215,7 @@ public class SnapshotsInProgressSerializationTests extends AbstractDiffableWireS
                 }
             }
             try (StreamInput in = out.bytes().streamInput()) {
-                in.setVersion(Version.V_3_0_0);
+                in.setVersion(Version.V_2_9_0);
                 actualSnapshotsInProgress = new SnapshotsInProgress(in);
                 assert in.available() == 0;
                 for (Entry curr_entry : actualSnapshotsInProgress.entries()) {

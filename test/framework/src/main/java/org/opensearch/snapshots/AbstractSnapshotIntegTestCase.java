@@ -51,16 +51,21 @@ import org.opensearch.cluster.routing.allocation.decider.EnableAllocationDecider
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.blobstore.BlobContainer;
+import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.compress.CompressorType;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.json.JsonXContent;
+import org.opensearch.index.IndexModule;
+import org.opensearch.index.store.RemoteBufferedOutputDirectory;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.node.NodeClosedException;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.repositories.RepositoriesService;
@@ -105,6 +110,7 @@ import static org.hamcrest.Matchers.is;
 
 public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestCase {
 
+    protected final static String TEST_REMOTE_STORE_REPO_SUFFIX = "__rs";
     private static final String OLD_VERSION_SNAPSHOT_PREFIX = "old-version-snapshot-";
 
     // Large snapshot pool settings to set up nodes for tests involving multiple repositories that need to have enough
@@ -148,14 +154,19 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
     @After
     public void assertRepoConsistency() {
         if (skipRepoConsistencyCheckReason == null) {
-            clusterAdmin().prepareGetRepositories().get().repositories().forEach(repositoryMetadata -> {
-                final String name = repositoryMetadata.name();
-                if (repositoryMetadata.settings().getAsBoolean("readonly", false) == false) {
-                    clusterAdmin().prepareDeleteSnapshot(name, OLD_VERSION_SNAPSHOT_PREFIX + "*").get();
-                    clusterAdmin().prepareCleanupRepository(name).get();
-                }
-                BlobStoreTestUtil.assertRepoConsistency(internalCluster(), name);
-            });
+            clusterAdmin().prepareGetRepositories()
+                .get()
+                .repositories()
+                .stream()
+                .filter(repositoryMetadata -> !repositoryMetadata.name().endsWith(TEST_REMOTE_STORE_REPO_SUFFIX))
+                .forEach(repositoryMetadata -> {
+                    final String name = repositoryMetadata.name();
+                    if (repositoryMetadata.settings().getAsBoolean("readonly", false) == false) {
+                        clusterAdmin().prepareDeleteSnapshot(name, OLD_VERSION_SNAPSHOT_PREFIX + "*").get();
+                        clusterAdmin().prepareCleanupRepository(name).get();
+                    }
+                    BlobStoreTestUtil.assertRepoConsistency(internalCluster(), name);
+                });
         } else {
             logger.info("--> skipped repo consistency checks because [{}]", skipRepoConsistencyCheckReason);
         }
@@ -367,8 +378,34 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
         assertAcked(clusterAdmin().preparePutRepository(repoName).setType(type).setSettings(settings));
     }
 
+    protected void updateRepository(String repoName, String type, Settings.Builder settings) {
+        logger.info("--> updating repository [{}] [{}]", repoName, type);
+        assertAcked(clusterAdmin().preparePutRepository(repoName).setType(type).setSettings(settings));
+    }
+
     protected void createRepository(String repoName, String type, Path location) {
         createRepository(repoName, type, Settings.builder().put("location", location));
+    }
+
+    protected Settings.Builder getRepositorySettings(Path location, boolean shallowCopyEnabled) {
+        Settings.Builder settingsBuilder = randomRepositorySettings();
+        settingsBuilder.put("location", location);
+        if (shallowCopyEnabled) {
+            settingsBuilder.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), true);
+        }
+        return settingsBuilder;
+    }
+
+    protected Settings.Builder getRepositorySettings(Path location, String basePath, boolean shallowCopyEnabled) {
+        Settings.Builder settingsBuilder = randomRepositorySettings();
+        settingsBuilder.put("location", location);
+        if (shallowCopyEnabled) {
+            settingsBuilder.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), true);
+        }
+        if (basePath != null) {
+            settingsBuilder.put("base_path", basePath);
+        }
+        return settingsBuilder;
     }
 
     protected void createRepository(String repoName, String type) {
@@ -385,6 +422,13 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
         if (rarely()) {
             settings.put("chunk_size", randomIntBetween(100, 1000), ByteSizeUnit.BYTES);
         }
+        return settings;
+    }
+
+    protected Settings.Builder snapshotRepoSettingsForShallowCopy() {
+        final Settings.Builder settings = Settings.builder();
+        settings.put("location", randomRepoPath());
+        settings.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), Boolean.TRUE);
         return settings;
     }
 
@@ -479,6 +523,26 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
         assertDocCount(index, numdocs);
     }
 
+    protected Settings getRemoteStoreBackedIndexSettings(String remoteStoreRepo) {
+        return Settings.builder()
+            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, "1")
+            .put("index.refresh_interval", "300s")
+            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, "1")
+            .put(IndexModule.INDEX_STORE_TYPE_SETTING.getKey(), IndexModule.Type.FS.getSettingsKey())
+            .put(IndexModule.INDEX_QUERY_CACHE_ENABLED_SETTING.getKey(), false)
+            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
+            .put(IndexMetadata.SETTING_REMOTE_STORE_ENABLED, true)
+            .put(IndexMetadata.SETTING_REMOTE_STORE_REPOSITORY, remoteStoreRepo)
+            .build();
+    }
+
+    protected Settings.Builder snapshotRepoSettingsForShallowCopy(Path path) {
+        final Settings.Builder settings = Settings.builder();
+        settings.put("location", path);
+        settings.put(BlobStoreRepository.REMOTE_STORE_INDEX_SHALLOW_COPY.getKey(), Boolean.TRUE);
+        return settings;
+    }
+
     protected long getCountForIndex(String indexName) {
         return client().search(
             new SearchRequest(new SearchRequest(indexName).source(new SearchSourceBuilder().size(0).trackTotalHits(true)))
@@ -487,6 +551,21 @@ public abstract class AbstractSnapshotIntegTestCase extends OpenSearchIntegTestC
 
     protected void assertDocCount(String index, long count) {
         assertEquals(getCountForIndex(index), count);
+    }
+
+    protected String[] getLockFilesInRemoteStore(String remoteStoreIndex, String remoteStoreRepositoryName) throws IOException {
+        String indexUUID = client().admin()
+            .indices()
+            .prepareGetSettings(remoteStoreIndex)
+            .get()
+            .getSetting(remoteStoreIndex, IndexMetadata.SETTING_INDEX_UUID);
+        final RepositoriesService repositoriesService = internalCluster().getCurrentClusterManagerNodeInstance(RepositoriesService.class);
+        final BlobStoreRepository remoteStoreRepository = (BlobStoreRepository) repositoriesService.repository(remoteStoreRepositoryName);
+        BlobPath shardLevelBlobPath = remoteStoreRepository.basePath().add(indexUUID).add("0").add("segments").add("lock_files");
+        BlobContainer blobContainer = remoteStoreRepository.blobStore().blobContainer(shardLevelBlobPath);
+        try (RemoteBufferedOutputDirectory lockDirectory = new RemoteBufferedOutputDirectory(blobContainer)) {
+            return lockDirectory.listAll();
+        }
     }
 
     /**

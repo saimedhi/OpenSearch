@@ -33,24 +33,24 @@
 package org.opensearch.index.reindex;
 
 import org.apache.logging.log4j.Logger;
-import org.opensearch.BaseExceptionsHelper;
 import org.opensearch.ExceptionsHelper;
+import org.opensearch.OpenSearchException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.bulk.BackoffPolicy;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.seqno.SequenceNumbers;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.threadpool.ThreadPool;
 
@@ -489,7 +489,7 @@ public abstract class ScrollableHitSource {
             builder.field(REASON_FIELD);
             {
                 builder.startObject();
-                BaseExceptionsHelper.generateThrowableXContent(builder, params, reason);
+                OpenSearchException.generateThrowableXContent(builder, params, reason);
                 builder.endObject();
             }
             builder.endObject();

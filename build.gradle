@@ -46,6 +46,7 @@ import org.gradle.plugins.ide.eclipse.model.EclipseJdt
 import org.gradle.plugins.ide.eclipse.model.SourceFolder
 import org.gradle.api.Project;
 import org.gradle.process.ExecResult;
+import org.opensearch.gradle.CheckCompatibilityTask
 
 import static org.opensearch.gradle.util.GradleUtils.maybeConfigure
 
@@ -53,7 +54,7 @@ plugins {
   id 'lifecycle-base'
   id 'opensearch.docker-support'
   id 'opensearch.global-build-info'
-  id "com.diffplug.spotless" version "6.18.0" apply false
+  id "com.diffplug.spotless" version "6.19.0" apply false
   id "org.gradle.test-retry" version "1.5.3" apply false
   id "test-report-aggregation"
   id 'jacoco-report-aggregation'
@@ -326,7 +327,7 @@ allprojects {
       javadoc.options.addStringOption('Xwerror', '-quiet')
     }
     javadoc.options.tags = ["opensearch.internal", "opensearch.api", "opensearch.experimental"]
-    javadoc.options.addStringOption("-release", targetCompatibility.majorVersion)
+    javadoc.options.addStringOption("-release", java.targetCompatibility.majorVersion)
   }
 
   // support for reproducible builds
@@ -374,7 +375,7 @@ allprojects {
         } else {
           // Link to non-shadowed dependant projects
           project.javadoc.dependsOn "${upstreamProject.path}:javadoc"
-          String externalLinkName = upstreamProject.archivesBaseName
+          String externalLinkName = upstreamProject.base.archivesBaseName
           String artifactPath = dep.group.replaceAll('\\.', '/') + '/' + externalLinkName.replaceAll('\\.', '/') + '/' + dep.version
           String projectRelativePath = project.relativePath(upstreamProject.buildDir)
           project.javadoc.options.linksOffline artifactsHost + "/javadoc/" + artifactPath, "${projectRelativePath}/docs/javadoc/"
@@ -423,6 +424,9 @@ gradle.projectsEvaluated {
         if (BuildParams.runtimeJavaVersion > JavaVersion.VERSION_17) {
           task.jvmArgs += ["-Djava.security.manager=allow"]
         }
+        if (BuildParams.runtimeJavaVersion >= JavaVersion.VERSION_20) {
+          task.jvmArgs += ["--add-modules=jdk.incubator.vector"]
+        }
       }
     }
 
@@ -451,7 +455,7 @@ gradle.projectsEvaluated {
       testReportAggregation it
     }
     subprojects.findAll { it.pluginManager.hasPlugin('jacoco') }.forEach {
-     jacocoAggregation it
+      jacocoAggregation it
     }
   }
 }
@@ -642,4 +646,16 @@ tasks.withType(TestTaskReports).configureEach {
 
 tasks.named(JavaBasePlugin.CHECK_TASK_NAME) {
   dependsOn tasks.named('testAggregateTestReport', TestReport)
+}
+
+tasks.register('checkCompatibility', CheckCompatibilityTask) {
+  description('Checks the compatibility with child components')
+}
+
+allprojects { project ->
+  project.afterEvaluate {
+    if (project.tasks.findByName('publishToMavenLocal')) {
+      checkCompatibility.dependsOn(project.tasks.publishToMavenLocal)
+    }
+  }
 }

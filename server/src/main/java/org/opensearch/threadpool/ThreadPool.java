@@ -37,19 +37,19 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.opensearch.Version;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.SizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.common.util.concurrent.OpenSearchExecutors;
-import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.common.util.concurrent.OpenSearchThreadPoolExecutor;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.common.util.concurrent.XRejectedExecutionHandler;
+import org.opensearch.core.concurrency.OpenSearchRejectedExecutionException;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.node.Node;
@@ -328,6 +328,19 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
      */
     public long relativeTimeInNanos() {
         return cachedTimeThread.relativeTimeInNanos();
+    }
+
+    /**
+     * Returns a value of nanoseconds that may be used for relative time calculations
+     * that require the highest precision possible. Performance critical code must use
+     * either {@link #relativeTimeInNanos()} or {@link #relativeTimeInMillis()} which
+     * give better performance at the cost of lower precision.
+     *
+     * This method should only be used for calculating time deltas. For an epoch based
+     * timestamp, see {@link #absoluteTimeInMillis()}.
+     */
+    public long preciseRelativeTimeInNanos() {
+        return System.nanoTime();
     }
 
     /**

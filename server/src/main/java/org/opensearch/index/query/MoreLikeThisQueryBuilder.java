@@ -37,7 +37,6 @@ import org.apache.lucene.index.Fields;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Query;
-import org.opensearch.BaseExceptionsHelper;
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.Version;
@@ -50,12 +49,12 @@ import org.opensearch.action.termvectors.TermVectorsResponse;
 import org.opensearch.client.Client;
 import org.opensearch.common.Nullable;
 import org.opensearch.core.ParseField;
-import org.opensearch.common.ParsingException;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.common.Strings;
-import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.StreamOutput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.common.lucene.search.MoreLikeThisQuery;
 import org.opensearch.common.lucene.search.XMoreLikeThis;
 import org.opensearch.common.lucene.uid.Versions;
@@ -449,7 +448,7 @@ public class MoreLikeThisQueryBuilder extends AbstractQueryBuilder<MoreLikeThisQ
                 toXContent(builder, EMPTY_PARAMS);
                 return Strings.toString(builder);
             } catch (Exception e) {
-                return "{ \"error\" : \"" + BaseExceptionsHelper.detailedMessage(e) + "\"}";
+                return "{ \"error\" : \"" + ExceptionsHelper.detailedMessage(e) + "\"}";
             }
         }
 

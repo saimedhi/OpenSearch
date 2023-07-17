@@ -68,7 +68,7 @@ import org.opensearch.common.util.FeatureFlags;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.env.Environment;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.IndexSettings;
@@ -132,7 +132,6 @@ import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_NUMBER_OF_SH
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_READ_ONLY;
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REMOTE_STORE_ENABLED;
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REMOTE_STORE_REPOSITORY;
-import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REMOTE_TRANSLOG_BUFFER_INTERVAL;
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_ENABLED;
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REMOTE_TRANSLOG_STORE_REPOSITORY;
 import static org.opensearch.cluster.metadata.IndexMetadata.SETTING_REPLICATION_TYPE;
@@ -143,6 +142,7 @@ import static org.opensearch.cluster.metadata.MetadataCreateIndexService.cluster
 import static org.opensearch.cluster.metadata.MetadataCreateIndexService.getIndexNumberOfRoutingShards;
 import static org.opensearch.cluster.metadata.MetadataCreateIndexService.parseV1Mappings;
 import static org.opensearch.cluster.metadata.MetadataCreateIndexService.resolveAndValidateAliases;
+import static org.opensearch.index.IndexSettings.INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING;
 import static org.opensearch.index.IndexSettings.INDEX_SOFT_DELETES_SETTING;
 import static org.opensearch.indices.IndicesService.CLUSTER_REMOTE_STORE_REPOSITORY_SETTING;
 import static org.opensearch.indices.IndicesService.CLUSTER_REMOTE_TRANSLOG_REPOSITORY_SETTING;
@@ -817,8 +817,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
 
         assertThat(aggregatedIndexSettings.get("template_setting"), equalTo("value1"));
@@ -880,8 +879,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
 
         assertThat(resolvedAliases.get(0).getSearchRouting(), equalTo("fromRequest"));
@@ -903,8 +901,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
 
         assertThat(aggregatedIndexSettings.get(SETTING_NUMBER_OF_SHARDS), equalTo("1"));
@@ -919,8 +916,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.builder().put(SETTING_NUMBER_OF_SHARDS, 15).build(),
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
 
         assertThat(aggregatedIndexSettings.get(SETTING_NUMBER_OF_SHARDS), equalTo("15"));
@@ -957,8 +953,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         List<AliasMetadata> resolvedAliases = resolveAndValidateAliases(
             request.index(),
@@ -997,8 +992,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
 
         assertThat(aggregatedIndexSettings.get("templateSetting"), is(nullValue()));
@@ -1220,13 +1214,12 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
                 settings,
                 IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
                 randomShardLimitService(),
-                Collections.emptySet(),
-                false
+                Collections.emptySet()
             )
         );
         assertThat(
             exc.getMessage(),
-            containsString("Cannot enable [index.remote_store.enabled] when [cluster.indices.replication.strategy] is DOCUMENT")
+            containsString("Cannot enable [index.remote_store.enabled] when [index.replication.type] is DOCUMENT")
         );
     }
 
@@ -1252,8 +1245,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         verifyRemoteStoreIndexSettings(
             indexSettings,
@@ -1262,7 +1254,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             "true",
             "my-translog-repo-1",
             ReplicationType.SEGMENT.toString(),
-            null
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
         );
     }
 
@@ -1285,8 +1277,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         verifyRemoteStoreIndexSettings(
             indexSettings,
@@ -1295,7 +1286,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             "true",
             "my-translog-repo-1",
             ReplicationType.SEGMENT.toString(),
-            null
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
         );
     }
 
@@ -1320,10 +1311,17 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
-        verifyRemoteStoreIndexSettings(indexSettings, "false", null, null, null, ReplicationType.SEGMENT.toString(), null);
+        verifyRemoteStoreIndexSettings(
+            indexSettings,
+            "false",
+            null,
+            null,
+            null,
+            ReplicationType.SEGMENT.toString(),
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
+        );
     }
 
     public void testRemoteStoreTranslogDisabledByUserIndexSettings() {
@@ -1347,10 +1345,17 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
-        verifyRemoteStoreIndexSettings(indexSettings, "true", "my-segment-repo-1", "false", null, ReplicationType.SEGMENT.toString(), null);
+        verifyRemoteStoreIndexSettings(
+            indexSettings,
+            "true",
+            "my-segment-repo-1",
+            "false",
+            null,
+            ReplicationType.SEGMENT.toString(),
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
+        );
     }
 
     public void testRemoteStoreOverrideSegmentRepoIndexSettings() {
@@ -1377,8 +1382,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         verifyRemoteStoreIndexSettings(
             indexSettings,
@@ -1387,7 +1391,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             "true",
             "my-translog-repo-1",
             ReplicationType.SEGMENT.toString(),
-            null
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
         );
     }
 
@@ -1412,8 +1416,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         verifyRemoteStoreIndexSettings(
             indexSettings,
@@ -1422,7 +1425,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             "true",
             "my-custom-repo",
             ReplicationType.SEGMENT.toString(),
-            null
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
         );
     }
 
@@ -1447,10 +1450,17 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
-        verifyRemoteStoreIndexSettings(indexSettings, null, null, null, null, ReplicationType.DOCUMENT.toString(), null);
+        verifyRemoteStoreIndexSettings(
+            indexSettings,
+            null,
+            null,
+            null,
+            null,
+            ReplicationType.DOCUMENT.toString(),
+            IndexSettings.DEFAULT_REMOTE_TRANSLOG_BUFFER_INTERVAL
+        );
     }
 
     public void testBuildIndexMetadata() {
@@ -1522,8 +1532,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
                 Settings.EMPTY,
                 IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
                 randomShardLimitService(),
-                Collections.emptySet(),
-                false
+                Collections.emptySet()
             );
         });
         assertThat(
@@ -1552,8 +1561,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         assertWarnings(
             "Translog retention settings [index.translog.retention.age] "
@@ -1600,8 +1608,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             Settings.EMPTY,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         assertWarnings(
             "[simplefs] is deprecated and will be removed in 2.0. Use [niofs], which offers equal "
@@ -1620,8 +1627,7 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         assertEquals(ReplicationType.SEGMENT.toString(), indexSettings.get(SETTING_REPLICATION_TYPE));
     }
@@ -1641,53 +1647,9 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
             settings,
             IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
             randomShardLimitService(),
-            Collections.emptySet(),
-            false
+            Collections.emptySet()
         );
         // Verify if index setting overrides cluster replication setting
-        assertEquals(ReplicationType.DOCUMENT.toString(), indexSettings.get(SETTING_REPLICATION_TYPE));
-    }
-
-    public void testHiddenIndexUsesDocumentReplication() {
-        Settings settings = Settings.builder().put(CLUSTER_REPLICATION_TYPE_SETTING.getKey(), ReplicationType.SEGMENT).build();
-        request = new CreateIndexClusterStateUpdateRequest("create index", "test", "test");
-        final Settings.Builder requestSettings = Settings.builder();
-        // Set index setting replication type as DOCUMENT
-        requestSettings.put("index.hidden", true);
-        request.settings(requestSettings.build());
-        Settings indexSettings = aggregateIndexSettings(
-            ClusterState.EMPTY_STATE,
-            request,
-            Settings.EMPTY,
-            null,
-            settings,
-            IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
-            randomShardLimitService(),
-            Collections.emptySet(),
-            false
-        );
-        // Verify replication type is Document Replication
-        assertEquals(ReplicationType.DOCUMENT.toString(), indexSettings.get(SETTING_REPLICATION_TYPE));
-    }
-
-    public void testSystemIndexUsesDocumentReplication() {
-        Settings settings = Settings.builder().put(CLUSTER_REPLICATION_TYPE_SETTING.getKey(), ReplicationType.SEGMENT).build();
-        request = new CreateIndexClusterStateUpdateRequest("create index", "test", "test");
-        final Settings.Builder requestSettings = Settings.builder();
-        request.settings(requestSettings.build());
-        // set isSystemIndex parameter as true
-        Settings indexSettings = aggregateIndexSettings(
-            ClusterState.EMPTY_STATE,
-            request,
-            Settings.EMPTY,
-            null,
-            settings,
-            IndexScopedSettings.DEFAULT_SCOPED_SETTINGS,
-            randomShardLimitService(),
-            Collections.emptySet(),
-            true
-        );
-        // Verify replication type is Document Replication
         assertEquals(ReplicationType.DOCUMENT.toString(), indexSettings.get(SETTING_REPLICATION_TYPE));
     }
 
@@ -1743,14 +1705,14 @@ public class MetadataCreateIndexServiceTests extends OpenSearchTestCase {
         String isRemoteTranslogEnabled,
         String remoteTranslogRepo,
         String replicationType,
-        String translogBufferInterval
+        TimeValue translogBufferInterval
     ) {
         assertEquals(replicationType, indexSettings.get(SETTING_REPLICATION_TYPE));
         assertEquals(isRemoteSegmentEnabled, indexSettings.get(SETTING_REMOTE_STORE_ENABLED));
         assertEquals(remoteSegmentRepo, indexSettings.get(SETTING_REMOTE_STORE_REPOSITORY));
         assertEquals(isRemoteTranslogEnabled, indexSettings.get(SETTING_REMOTE_TRANSLOG_STORE_ENABLED));
         assertEquals(remoteTranslogRepo, indexSettings.get(SETTING_REMOTE_TRANSLOG_STORE_REPOSITORY));
-        assertEquals(translogBufferInterval, indexSettings.get(SETTING_REMOTE_TRANSLOG_BUFFER_INTERVAL));
+        assertEquals(translogBufferInterval, INDEX_REMOTE_TRANSLOG_BUFFER_INTERVAL_SETTING.get(indexSettings));
     }
 
 }
